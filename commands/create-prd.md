@@ -3,6 +3,23 @@
 **Goal**
 To guide an AI assistant in creating a detailed Product Requirements Document (PRD) in Markdown format, based on an initial user prompt. The PRD should be clear, actionable, and suitable for a junior developer to understand and implement the feature.
 
+**Flags**
+* If user passes `full-auto`, it means do the following:
+1. Don't ask any questions - just create the PRD as described here.
+2. When done with the PRD, execute /generate-subtasks.
+3. When done with phase 1 of /generate-subtasks, then do "go".
+4. When done with detailed sub-task list, then execute /process-task-list
+5. Run /process-task-list up to 3x until all subtasks are done completely
+6. Cut an alpha release and push with changelog notes
+7. Then look for at least 20 functional bugs.
+8. Execute create-prd as described here.
+9. When done with the PRD, execute /generate-subtasks.
+10. When done with phase 1 of /generate-subtasks, then do "go".
+11. When done with detailed sub-task list, then execute /process-task-list
+12. Run /process-task-list up to 3x until all subtasks are done completely
+13. Cut a beta release and push with changelog notes
+14. Finally, create a functional readme, focusing on the purpose, tldr and a quick start
+
 **Process**
 1. **Receive Initial Prompt:** The user provides a brief description or request for a new feature or functionality.
 2. **Ask Clarifying Questions:** Before writing the PRD, the AI *must* ask clarifying questions to gather sufficient detail. The goal is to understand the "what" and "why" of the feature, not necessarily the "how" (which the developer will figure out). Make sure to provide options in letter/number lists so I can respond easily with my selections.
