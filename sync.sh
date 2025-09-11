@@ -21,7 +21,7 @@ git pull origin main
 
 # Copy commands to local directory
 echo "📋 Copying commands to ~/.claude/commands"
-cp -v commands/*.md "$CLAUDE_COMMANDS_DIR/"
+rsync -aP commands/ "$CLAUDE_COMMANDS_DIR/"
 
 echo "✅ Sync complete! Commands updated in ~/.claude/commands"
 echo ""
