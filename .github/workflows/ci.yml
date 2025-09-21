@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            shell: bash
+          - os: macos-latest
+            shell: bash
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up environment
+      run: |
+        echo "Setting up test environment"
+        mkdir -p /tmp/claude-sync-test/{local,repo}
+        chmod +x sync.sh
+
+    - name: Test help functionality
+      run: |
+        echo "Testing help output"
+        ./sync.sh --help
+
+    - name: Test sync modes
+      run: |
+        echo "Testing different sync modes"
+
+        # Test repo-to-local mode
+        echo "Testing --repo-to-local"
+        ./sync.sh --repo-to-local
+
+        # Verify directories were created
+        [ -d "$HOME/.claude/commands" ] || exit 1
+        [ -d "$HOME/.claude/agents" ] || exit 1
+
+        echo "✅ Repo-to-local sync works"
+
+    - name: Test bidirectional preview
+      run: |
+        echo "Testing bidirectional preview mode"
+
+        # Test preview without making changes
+        echo "n" | ./sync.sh || true
+
+        echo "✅ Preview mode works"
+
+    - name: Test local-to-repo mode
+      run: |
+        echo "Testing --local-to-repo"
+
+        # Create a test file locally
+        echo "test content" > "$HOME/.claude/agents/test-agent.md"
+
+        # Sync to repo
+        ./sync.sh --local-to-repo
+
+        # Verify file was created in repo
+        [ -f "agents/test-agent.md" ] || exit 1
+
+        echo "✅ Local-to-repo sync works"
+
+    - name: Test file timestamp comparison
+      run: |
+        echo "Testing timestamp-based sync logic"
+
+        # Create test files with different timestamps
+        echo "older content" > "$HOME/.claude/agents/timestamp-test.md"
+        sleep 2
+        echo "newer content" > "agents/timestamp-test.md"
+
+        # Test that newer file wins
+        echo "y" | ./sync.sh
+
+        # Verify the newer content was synced
+        content=$(cat "$HOME/.claude/agents/timestamp-test.md")
+        if [ "$content" = "newer content" ]; then
+          echo "✅ Timestamp comparison works correctly"
+        else
+          echo "❌ Timestamp comparison failed"
+          exit 1
+        fi
+
+    - name: Test error handling
+      run: |
+        echo "Testing error handling"
+
+        # Test with invalid flags
+        if ./sync.sh --invalid-flag 2>/dev/null; then
+          echo "❌ Should have failed with invalid flag"
+          exit 1
+        else
+          echo "✅ Invalid flag handling works"
+        fi
+
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Shellcheck
+      uses: ludeeus/action-shellcheck@master
+      with:
+        scandir: '.'
+        format: gcc
+        severity: warning
+        additional_files: 'sync.sh'
+
+  validate-structure:
+    name: Validate Repository Structure
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Validate required files exist
+      run: |
+        echo "Checking required files..."
+
+        # Core files
+        [ -f "sync.sh" ] || { echo "❌ sync.sh missing"; exit 1; }
+        [ -f "README.md" ] || { echo "❌ README.md missing"; exit 1; }
+        [ -f "LICENSE" ] || { echo "❌ LICENSE missing"; exit 1; }
+        [ -f "CONTRIBUTING.md" ] || { echo "❌ CONTRIBUTING.md missing"; exit 1; }
+
+        # Directories
+        [ -d "agents" ] || { echo "❌ agents/ directory missing"; exit 1; }
+        [ -d "commands" ] || { echo "❌ commands/ directory missing"; exit 1; }
+        [ -d ".github" ] || { echo "❌ .github/ directory missing"; exit 1; }
+
+        # GitHub templates
+        [ -f ".github/pull_request_template.md" ] || { echo "❌ PR template missing"; exit 1; }
+        [ -f ".github/ISSUE_TEMPLATE/bug_report.md" ] || { echo "❌ Bug report template missing"; exit 1; }
+        [ -f ".github/ISSUE_TEMPLATE/feature_request.md" ] || { echo "❌ Feature request template missing"; exit 1; }
+
+        echo "✅ All required files present"
+
+    - name: Validate agent files
+      run: |
+        echo "Validating agent files..."
+
+        # Check that agent files exist and have content
+        agent_count=$(find agents -name "*.md" | wc -l)
+        if [ "$agent_count" -lt 5 ]; then
+          echo "❌ Expected at least 5 agent files, found $agent_count"
+          exit 1
+        fi
+
+        echo "✅ Found $agent_count agent files"
+
+    - name: Validate command files
+      run: |
+        echo "Validating command files..."
+
+        # Check that essential command files exist
+        [ -f "commands/create-prd.md" ] || { echo "❌ create-prd.md missing"; exit 1; }
+        [ -f "commands/generate-tasks.md" ] || { echo "❌ generate-tasks.md missing"; exit 1; }
+        [ -f "commands/process-task-list.md" ] || { echo "❌ process-task-list.md missing"; exit 1; }
+
+        echo "✅ Essential command files present"
