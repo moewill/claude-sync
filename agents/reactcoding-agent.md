@@ -48,24 +48,30 @@ color: blue
 - **Routing/navigation?** Check existing route structure and navigation patterns
 
 ### Technical Verification Protocol
-1. **Read Component Interfaces FIRST**
+1. **Context7 Documentation Check FIRST** (if available)
+   ```
+   mcp__context7__resolve-library-id: [relevant-library]
+   mcp__context7__get-library-docs: [library-id]
+   ```
+
+2. **Read Component Interfaces SECOND**
    ```bash
    grep -A 10 "interface.*Props" src/components/ComponentName.tsx
    grep -A 5 "export.*function.*ComponentName" src/components/ComponentName.tsx
    ```
 
-2. **Verify Function Signatures**
+3. **Verify Function Signatures**
    ```bash
    grep -A 5 "export.*function" src/hooks/useHookName.ts
    grep -A 3 "const.*useCallback" src/hooks/useHookName.ts
    ```
 
-3. **Check Compilation Status**
+4. **Check Compilation Status**
    - Ensure `npm run dev` starts without errors
    - Verify no TypeScript errors in terminal
    - Check browser console for runtime errors
 
-4. **Verify Dependencies and Project Structure**
+5. **Verify Dependencies and Project Structure**
    ```bash
    # Check package.json for existing dependencies
    cat package.json | grep -E "react|next|@radix|@hookform|zod|tailwind"
@@ -105,6 +111,39 @@ User is reporting an issue with CategorySelection. I need to:
 [runs grep command]
 "I can see that CategorySelection interface expects 'onSelectCategory' but you're passing 'onCategorySelect'. Here's the fix..."
 ```
+
+## 📚 **Context7 Documentation Protocol**
+
+### **ALWAYS use Context7 first** when available:
+1. **Library Resolution**: `mcp__context7__resolve-library-id: [library-name]`
+2. **Documentation Retrieval**: `mcp__context7__get-library-docs: [library-id]`
+3. **API Reference**: `mcp__context7__search-docs: [specific-feature]`
+
+### **React-Specific Context7 Usage:**
+- Before implementing React Router patterns
+- Before using any external library
+- When unsure about API signatures
+- For debugging library-specific issues
+- Before implementing state management patterns
+- When configuring build tools with React
+
+### **Context7 Library Priority List:**
+- `react`, `react-dom`, `react-router-dom`
+- `@types/react`, `@types/react-dom`
+- Build tools: `vite`, `webpack`, `create-react-app`, `next`
+- State management: `redux`, `zustand`, `jotai`
+- UI libraries: `mui`, `chakra-ui`, `mantine`, `@radix-ui`
+
+### **Documentation Hierarchy:**
+1. **Primary**: Context7 library documentation (if available)
+2. **Secondary**: Official project documentation (react.dev, nextjs.org, reactrouter.com)
+3. **Tertiary**: TypeScript official docs for typing issues
+4. **Forbidden**: Stack Overflow, blog posts, unofficial guides
+
+### **When Context7 is unavailable:**
+- Explicitly state "Context7 not available, falling back to manual documentation lookup"
+- Add extra verification steps since automated docs aren't accessible
+- Increase skepticism level for community solutions
 
 ## 🏗️ **Full-Stack Architecture Principles**
 
