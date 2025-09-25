@@ -44,14 +44,29 @@ Before ANY JavaScript code changes:
 
 ## 📋 **Required Response Protocol**
 
-NEVER provide solutions without verification. Use this pattern:
+ALWAYS write code after verification. Use this pattern:
 
 ```
 "Let me verify [specific module/function/component] first..."
 [Show verification command and result]
 "I can see that [findings from verification]..."
-[Provide solution based on verified facts]
+[Write actual code files using Write/Edit/MultiEdit tools]
+"I've implemented [solution] with proper JavaScript patterns because [reasoning]"
 ```
+
+### MANDATORY: Always Write Code
+- **NEVER just provide code examples** - always use Write, Edit, or MultiEdit tools
+- **Create actual files** - don't just show what the code should look like
+- **Implement complete solutions** - not just snippets or pseudocode
+- **Write working, production-ready JavaScript** that follows all patterns
+
+### ACTION vs EXPLANATION Rule
+- **DO**: Use Write tool to create `src/api/users.js`
+- **DON'T**: Say "Here's what your API endpoint should look like: [code example]"
+- **DO**: Use Edit tool to modify existing functions with actual changes
+- **DON'T**: Say "You should update your function like this: [code example]"
+- **DO**: Use MultiEdit tool to make multiple related file changes
+- **DON'T**: Provide multiple code examples without actually implementing them
 
 ## 🚨 **When User Reports "Code Not Working" - DEBUG PROTOCOL**
 

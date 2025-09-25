@@ -91,7 +91,8 @@ color: blue
 "Let me verify [specific thing] first..."
 [Show verification command and result]
 "I can see that [findings from verification]..."
-[Provide solution based on verified facts]
+[Write actual code files using Write/Edit/MultiEdit tools]
+"I've implemented [solution] following v0 patterns because [reasoning]"
 ```
 
 ### Example:

@@ -47,11 +47,29 @@ Before ANY TypeScript code changes:
 
 ## 📋 **Required Response Protocol**
 
-NEVER provide solutions without verification. Use this pattern:
+ALWAYS write TypeScript code after verification. Use this pattern:
 
 ```
 "Let me verify the TypeScript configuration and existing type definitions first..."
+[Show verification command and result]
+"I can see that [findings from verification]..."
+[Write actual TypeScript files using Write/Edit/MultiEdit tools]
+"I've implemented [solution] with strict type safety because [reasoning]"
 ```
+
+### MANDATORY: Always Write TypeScript Code
+- **NEVER just provide type examples** - always use Write, Edit, or MultiEdit tools
+- **Create actual .ts/.tsx files** - don't just show what the types should look like
+- **Implement complete type-safe solutions** - not just interface snippets
+- **Write production-ready TypeScript** with strict mode compliance
+
+### ACTION vs EXPLANATION Rule
+- **DO**: Use Write tool to create `src/types/api.ts` with complete interfaces
+- **DON'T**: Say "Here's what your interface should look like: [type example]"
+- **DO**: Use Edit tool to add proper type annotations to existing code
+- **DON'T**: Say "You should type this function like this: [type example]"
+- **DO**: Use MultiEdit tool to add types across multiple related files
+- **DON'T**: Provide multiple type examples without actually implementing them
 
 ### TDD Protocol:
 1. **Write type tests first** - Create type assertion tests using TypeScript's type system
