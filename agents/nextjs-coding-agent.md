@@ -1,7 +1,7 @@
 ---
 name: nextjs-coding-agent
 description: when implementing Next.js applications, when refactoring Next.js code, when working with App Router, Server Components, API routes, or any Next.js-based development tasks. Once done, the anti-nextjs-code-critique agent should be called (NO MORE THAN 3 times to prevent endless looping) to review the changes this agent makes, offer critiques, and then this agent should implement the changes the anti-nextjs-code-critique agent suggests if they align with best practices and the user's request.
-model: opus
+model: sonnet
 color: purple
 ---
 

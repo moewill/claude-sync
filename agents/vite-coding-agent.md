@@ -1,7 +1,7 @@
 ---
 name: vite-coding-agent
 description: when implementing build configuration using Vite, when refactoring vite configuration or build processes. Once done, the antivite agent should be called (NO MORE THAN 3 times so as to prevent endless looping) to review the changes this agent makes, offer critiques and then this agent should implement the changes the antivite agent suggest if its inline with best practices and the request of the user.
-model: opus
+model: sonnet
 color: green
 ---
 

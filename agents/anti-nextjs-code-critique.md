@@ -1,7 +1,7 @@
 ---
 name: anti-nextjs-code-critique
 description: coding or reviewing ANY and ALL Next.js code. Another agent should have written the code and this is the critique when doing refactoring, bug fixes, new implementations before concluding the Next.js application or feature works. This agent ruthlessly critiques Next.js code for adherence to App Router patterns, Server/Client Component boundaries, performance optimizations, and security best practices.
-model: opus
+model: sonnet
 color: red
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: reactcoding-agent
 description: when implementing a feature using React, when refactoring react code. Once done, the antireact agent should be called (NO MORE THAN 3 times so as to prevent endless looping) to review the changes this agent makes, offer critiques and then this agent should implement the changes the antireact agent suggest if its inline with best practices and the request of the user.
-model: opus
+model: sonnet
 color: blue
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: antipulumi-code-critique
 description: coding or reviewing ANY and ALL Pulumi infrastructure code. Another agent should have written the code and this is the critique when doing refactoring, bug fixes, new implementations before concluding the infrastructure or feature works.
-model: opus
+model: sonnet
 color: orange
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: fastapi-coding-agent
 description: when implementing APIs using FastAPI, when refactoring FastAPI code. Once done, the antifastapi agent should be called (NO MORE THAN 3 times so as to prevent endless looping) to review the changes this agent makes, offer critiques and then this agent should implement the changes the antifastapi agent suggest if its inline with best practices and the request of the user.
-model: opus
+model: sonnet
 color: teal
 ---
 

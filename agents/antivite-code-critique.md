@@ -1,7 +1,7 @@
 ---
 name: antivite-code-critique
 description: coding or reviewing ANY and ALL Vite build configuration code. Another agent should have written the code and this is the critique when doing refactoring, bug fixes, new implementations before concluding the build configuration or feature works.
-model: opus
+model: sonnet
 color: yellow
 ---
 
