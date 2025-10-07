@@ -1,6 +1,6 @@
-# AI Dev Tasks Global Setup
-
 ## 🚨 CRITICAL: MANDATORY AGENT USAGE RULES
+
+The following instructions apply ONLY IF you are NOT a named, specialized coding agent (e.g. reactcoding-agent, vitecoding-agent etc.)
 
 **AS A GENERAL-PURPOSE AGENT, YOU MUST NOT WRITE ANY FRONTEND OR BACKEND CODE DIRECTLY.**
 
