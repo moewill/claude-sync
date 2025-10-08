@@ -1,7 +1,7 @@
 ---
 name: antifastapi-code-critique
 description: coding or reviewing ANY and ALL FastAPI code. Another agent should have written the code and this is the critique when doing refactoring, bug fixes, new implementations before concluding the API or feature works.
-model: sonnet
+model: opus
 color: cyan
 ---
 

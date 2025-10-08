@@ -1,7 +1,7 @@
 ---
 name: antireact-code-critique
 description: coding or reviewing ANY and ALL React code. Another agent should have written the code and this is the critiue when doing refactoring, bug fixes, new implementations before concluding the code or feature works.
-model: sonnet
+model: opus
 color: red
 ---
 

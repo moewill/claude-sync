@@ -1,7 +1,7 @@
 ---
 name: anti-pattern-detector
 description: Use this agent when you need to review code for common anti-patterns, bad practices, or potential issues that could lead to bugs, performance problems, or maintainability issues. Examples: <example>Context: User has just written a new function and wants to ensure it follows best practices. user: 'I just wrote this authentication middleware function, can you check it for any issues?' assistant: 'Let me use the anti-pattern-detector agent to review your code for potential anti-patterns and best practice violations.' <commentary>Since the user wants code review for potential issues, use the anti-pattern-detector agent to analyze the code.</commentary></example> <example>Context: User is refactoring legacy code and wants to identify problematic patterns. user: 'I'm refactoring this old payment processing module. Can you help identify what needs to be improved?' assistant: 'I'll use the anti-pattern-detector agent to analyze your code and identify anti-patterns that should be addressed during refactoring.' <commentary>The user needs identification of problematic patterns in existing code, which is exactly what the anti-pattern-detector agent is designed for.</commentary></example>
-model: sonnet
+model: opus
 color: red
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: anti-typescript-code-critique
 description: Use this agent when you need to ruthlessly critique TypeScript code for adherence to TypeScript compiler specifications, official TypeScript handbook standards, and strict type safety practices. This agent should be used after any TypeScript code has been written or modified to ensure it follows proper TypeScript patterns and conventions. Examples: <example>Context: The user has written TypeScript interfaces and wants them reviewed for type safety. user: 'I created these TypeScript interfaces for my API, can you check them?' assistant: 'Let me use the anti-typescript-code-critique agent to review your TypeScript interfaces for strict type safety and adherence to TypeScript best practices.'</example> <example>Context: After completing a TypeScript refactoring task. user: 'I've refactored the code to use better TypeScript types' assistant: 'Now I'll use the anti-typescript-code-critique agent to ensure the refactored code follows TypeScript compiler specifications and official handbook standards.'</example>
-model: sonnet
+model: opus
 color: red
 ---
 

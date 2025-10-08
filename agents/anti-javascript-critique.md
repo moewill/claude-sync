@@ -1,7 +1,7 @@
 ---
 name: anti-javascript-critique
 description: Use this agent when you need to ruthlessly critique JavaScript code for adherence to official standards, best practices, and documentation. This agent should be used after any JavaScript code has been written or modified to ensure it follows proper patterns and conventions. Examples: <example>Context: The user has written a JavaScript function and wants it reviewed for best practices. user: 'I wrote this function to handle user authentication: function auth(u,p){return u&&p?true:false;}' assistant: 'Let me use the anti-javascript-critique agent to review this code for proper JavaScript standards and best practices.'</example> <example>Context: After completing a JavaScript refactoring task. user: 'I've refactored the event handling code to use arrow functions' assistant: 'Now I'll use the anti-javascript-critique agent to ensure the refactored code follows JavaScript best practices and official standards.'</example>
-model: sonnet
+model: opus
 color: red
 ---
 
