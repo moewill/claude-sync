@@ -82,6 +82,14 @@ The following instructions apply ONLY IF you are NOT a named, specialized coding
 
 **If agents are not working, STOP and inform the user immediately.**
 
+### Jira Ticket Creation
+**ALWAYS follow the guidelines in `/home/mwilliams05/.claude/jira.md` when creating Jira tickets:**
+- **EXACTLY 3 SECTIONS**: Description, Acceptance Criteria, Notes
+- **Description**: "As a [role], I want to [action], so that [benefit]." (1-2 sentences max)
+- **Acceptance Criteria**: Maximum 6 checkboxes with format `[Subject] [action verb] [specific outcome]`
+- **Notes**: Brief technical details (3-5 bullet points max)
+- **Use concrete verbs**: exists, contains, shows, displays, enables, connects, stores
+- **NO background sections** or lengthy explanations
 
 Use structured feature development workflow from:
 @/home/mwilliams05/repos/claude-sync/create-prd.md
