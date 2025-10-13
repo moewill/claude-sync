@@ -13,10 +13,10 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# Configuration
-REPO_URL="https://github.com/moewill/claude-sync.git"
-INSTALL_DIR="$HOME/.claude-sync"
-CLAUDE_DIR="$HOME/.claude"
+# Configuration - Allow override via environment variables
+REPO_URL="${CLAUDE_SYNC_REPO_URL:-https://github.com/moewill/claude-sync.git}"
+INSTALL_DIR="${CLAUDE_SYNC_INSTALL_DIR:-$HOME/.claude-sync}"
+CLAUDE_DIR="${CLAUDE_SYNC_DIR:-$HOME/.claude}"
 
 # Functions for styled output
 print_header() {
@@ -57,6 +57,168 @@ detect_os() {
         msys|cygwin*) echo "windows" ;;
         *)            echo "unknown" ;;
     esac
+}
+
+# Security validation functions
+validate_repository_url() {
+    local url="$1"
+
+    # Check if URL is empty
+    if [ -z "$url" ]; then
+        print_error "Repository URL cannot be empty"
+        log_validation_failure "URL_EMPTY" "Repository URL is empty"
+        return 1
+    fi
+
+    # Sanitize URL by removing any dangerous characters
+    local sanitized_url
+    sanitized_url=$(echo "$url" | tr -d '\r\n\t' | sed 's/[[:space:]]//g')
+
+    # Check for URL injection attempts
+    if [[ "$sanitized_url" == *";"* ]] || [[ "$sanitized_url" == *"|"* ]] || [[ "$sanitized_url" == *"&"* ]]; then
+        print_error "Repository URL contains potentially malicious characters"
+        log_validation_failure "URL_INJECTION" "Malicious characters in URL: $sanitized_url"
+        return 1
+    fi
+
+    # Allow only HTTPS GitHub URLs for security
+    if [[ ! "$sanitized_url" =~ ^https://github\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+\.git$ ]]; then
+        print_error "Invalid repository URL. Only HTTPS GitHub URLs are allowed."
+        print_info "Expected format: https://github.com/username/repository.git"
+        print_info "Provided: $sanitized_url"
+        log_validation_failure "URL_FORMAT" "Invalid URL format: $sanitized_url"
+        return 1
+    fi
+
+    # Additional security checks
+    local repo_path
+    repo_path=$(echo "$sanitized_url" | sed 's|https://github.com/||' | sed 's|\.git$||')
+    local username
+    local reponame
+    username=$(echo "$repo_path" | cut -d'/' -f1)
+    reponame=$(echo "$repo_path" | cut -d'/' -f2)
+
+    # Check for suspicious patterns
+    if [[ "$username" =~ ^[.-] ]] || [[ "$username" =~ [.-]$ ]] || [[ "$reponame" =~ ^[.-] ]] || [[ "$reponame" =~ [.-]$ ]]; then
+        print_error "Repository username or name has suspicious formatting"
+        log_validation_failure "URL_SUSPICIOUS" "Suspicious repo format: $username/$reponame"
+        return 1
+    fi
+
+    # Store sanitized URL back for use
+    REPO_URL="$sanitized_url"
+    log_validation_success "URL_VALIDATED" "Repository URL validated: $sanitized_url"
+
+    return 0
+}
+
+validate_directory_path() {
+    local path="$1"
+    local path_name="$2"
+
+    # Check if path is empty
+    if [ -z "$path" ]; then
+        print_error "$path_name cannot be empty"
+        return 1
+    fi
+
+    # Prevent directory traversal attacks
+    if [[ "$path" == *".."* ]] || [[ "$path" == *"~"* && "$path" != "$HOME"* ]]; then
+        print_error "Invalid $path_name: contains potentially dangerous path elements"
+        return 1
+    fi
+
+    # Ensure path is within user's home directory or safe system paths
+    case "$path" in
+        "$HOME"*|"/usr/local"*|"/opt"*)
+            return 0
+            ;;
+        *)
+            print_warning "$path_name is outside typical installation directories"
+            print_info "Path: $path"
+            read -p "Continue anyway? (y/N): " -r
+            [[ $REPLY =~ ^[Yy]$ ]] && return 0 || return 1
+            ;;
+    esac
+}
+
+# Security logging functions
+LOG_FILE="${CLAUDE_SYNC_LOG_FILE:-$HOME/.claude/install_security.log}"
+
+log_security_event() {
+    local event_type="$1"
+    local message="$2"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Create log directory if it doesn't exist
+    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+
+    # Log the event
+    echo "[$timestamp] [$event_type] [INSTALL] $message" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+log_validation_failure() {
+    local validation_type="$1"
+    local details="$2"
+    log_security_event "VALIDATION_FAIL" "$validation_type: $details"
+}
+
+log_validation_success() {
+    local validation_type="$1"
+    local details="$2"
+    log_security_event "VALIDATION_OK" "$validation_type: $details"
+}
+
+# Path sanitization for sensitive information
+sanitize_path_for_display() {
+    local path="$1"
+
+    # Replace full home directory path with ~
+    if [[ "$path" == "$HOME"* ]]; then
+        echo "~${path#$HOME}"
+    # For other paths, just show basename if it's a deep path
+    elif [[ $(echo "$path" | tr -cd '/' | wc -c) -gt 2 ]]; then
+        echo "...$(basename "$path")"
+    else
+        echo "$path"
+    fi
+}
+
+sanitize_path_for_log() {
+    local path="$1"
+
+    # For logs, be more restrictive
+    if [[ "$path" == "$HOME"* ]]; then
+        echo "~/${path#$HOME/}"
+    else
+        # Hash sensitive parts of the path
+        local sanitized
+        sanitized=$(echo "$path" | sed 's|/[^/]*|/<sanitized>|g' | sed 's|<sanitized>/[^/]*$|/<file>|')
+        echo "$sanitized"
+    fi
+}
+
+# Secure directory creation with validation
+safe_mkdir() {
+    local dir="$1"
+    local description="$2"
+
+    # Validate directory path
+    if ! validate_directory_path "$dir" "$description"; then
+        return 1
+    fi
+
+    # Create directory with secure permissions
+    if ! mkdir -p "$dir"; then
+        print_error "Failed to create $description: $dir"
+        return 1
+    fi
+
+    # Set secure permissions (rwx for owner only)
+    chmod 700 "$dir" 2>/dev/null || true
+
+    return 0
 }
 
 # Function to check prerequisites
@@ -112,11 +274,20 @@ check_prerequisites() {
 create_directories() {
     print_step "Creating directories"
 
-    # Create Claude directories
-    mkdir -p "$CLAUDE_DIR/commands"
-    mkdir -p "$CLAUDE_DIR/agents"
+    # Create Claude directories with validation
+    if ! safe_mkdir "$CLAUDE_DIR" "Claude configuration directory"; then
+        return 1
+    fi
 
-    print_success "Created ~/.claude directories"
+    if ! safe_mkdir "$CLAUDE_DIR/commands" "Claude commands directory"; then
+        return 1
+    fi
+
+    if ! safe_mkdir "$CLAUDE_DIR/agents" "Claude agents directory"; then
+        return 1
+    fi
+
+    print_success "Created ~/.claude directories with secure permissions"
 }
 
 # Function to clone or update repository
@@ -218,6 +389,23 @@ main() {
     trap cleanup_on_error ERR
 
     print_header
+
+    # Validate configuration before proceeding
+    print_step "Validating configuration"
+
+    if ! validate_repository_url "$REPO_URL"; then
+        exit 1
+    fi
+
+    if ! validate_directory_path "$INSTALL_DIR" "Installation directory"; then
+        exit 1
+    fi
+
+    if ! validate_directory_path "$CLAUDE_DIR" "Claude directory"; then
+        exit 1
+    fi
+
+    print_success "Configuration validated"
 
     # Check if running as root
     if [ "$(id -u)" = "0" ]; then

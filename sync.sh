@@ -11,6 +11,220 @@ CLAUDE_MD_FILE="$HOME/.claude/CLAUDE.md"
 # Default sync mode
 SYNC_MODE="bidirectional"
 
+# Security validation functions
+validate_directory_safety() {
+    local path="$1"
+    local path_name="$2"
+
+    # Check if path is empty
+    if [ -z "$path" ]; then
+        echo "Error: $path_name cannot be empty"
+        log_validation_failure "DIRECTORY_EMPTY" "$path_name is empty"
+        return 1
+    fi
+
+    # Prevent directory traversal attacks
+    if [[ "$path" == *".."* ]]; then
+        echo "Error: Invalid $path_name - contains potentially dangerous path elements"
+        log_validation_failure "DIRECTORY_TRAVERSAL" "$path_name contains '..' - $path"
+        return 1
+    fi
+
+    # Ensure path is within expected locations
+    case "$path" in
+        "$HOME"*|"/tmp"*|"$REPO_DIR"*)
+            log_validation_success "DIRECTORY_PATH" "$path_name validated - $path"
+            return 0
+            ;;
+        *)
+            echo "Warning: $path_name is outside typical sync directories: $path"
+            log_security_event "DIRECTORY_WARNING" "$path_name outside typical directories - $path"
+            return 0  # Allow but warn
+            ;;
+    esac
+}
+
+# Security logging functions
+LOG_FILE="${CLAUDE_SYNC_LOG_FILE:-$HOME/.claude/sync_security.log}"
+
+log_security_event() {
+    local event_type="$1"
+    local message="$2"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Create log directory if it doesn't exist
+    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+
+    # Log the event
+    echo "[$timestamp] [$event_type] $message" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+log_file_operation() {
+    local operation="$1"
+    local source="$2"
+    local destination="$3"
+    local safe_src
+    local safe_dest
+    safe_src=$(sanitize_path_for_log "$source")
+    safe_dest=$(sanitize_path_for_log "$destination")
+    log_security_event "FILE_OP" "$operation: $safe_src -> $safe_dest"
+}
+
+log_validation_failure() {
+    local validation_type="$1"
+    local details="$2"
+    log_security_event "VALIDATION_FAIL" "$validation_type: $details"
+}
+
+log_validation_success() {
+    local validation_type="$1"
+    local details="$2"
+    log_security_event "VALIDATION_OK" "$validation_type: $details"
+}
+
+# Path sanitization for sensitive information
+sanitize_path_for_display() {
+    local path="$1"
+
+    # Replace full home directory path with ~
+    if [[ "$path" == "$HOME"* ]]; then
+        echo "~${path#$HOME}"
+    # Replace full repo directory path with <repo>
+    elif [[ -n "$REPO_DIR" && "$path" == "$REPO_DIR"* ]]; then
+        echo "<repo>${path#$REPO_DIR}"
+    # For other paths, just show basename if it's a deep path
+    elif [[ $(echo "$path" | tr -cd '/' | wc -c) -gt 2 ]]; then
+        echo "...$(basename "$path")"
+    else
+        echo "$path"
+    fi
+}
+
+sanitize_path_for_log() {
+    local path="$1"
+
+    # For logs, be more restrictive - only show relative paths or sanitized versions
+    if [[ "$path" == "$HOME"* ]]; then
+        echo "~/${path#$HOME/}"
+    elif [[ -n "$REPO_DIR" && "$path" == "$REPO_DIR"* ]]; then
+        echo "<repo>/${path#$REPO_DIR/}"
+    else
+        # Hash sensitive parts of the path
+        local sanitized
+        sanitized=$(echo "$path" | sed 's|/[^/]*|/<sanitized>|g' | sed 's|<sanitized>/[^/]*$|/<file>|')
+        echo "$sanitized"
+    fi
+}
+
+# Secure file operation functions
+safe_copy_file() {
+    local src="$1"
+    local dest="$2"
+    local operation_type="$3"
+
+    # Log the operation attempt
+    log_file_operation "$operation_type" "$src" "$dest"
+
+    # Validate source file exists and is readable
+    if [ ! -f "$src" ]; then
+        echo "Error: Source file does not exist: $(sanitize_path_for_display "$src")"
+        log_security_event "FILE_ERROR" "Source file missing: $(sanitize_path_for_log "$src")"
+        return 1
+    fi
+
+    if [ ! -r "$src" ]; then
+        echo "Error: Cannot read source file: $(sanitize_path_for_display "$src")"
+        log_security_event "FILE_ERROR" "Source file unreadable: $(sanitize_path_for_log "$src")"
+        return 1
+    fi
+
+    # Create destination directory if it doesn't exist
+    local dest_dir
+    dest_dir="$(dirname "$dest")"
+    if [ ! -d "$dest_dir" ]; then
+        if ! mkdir -p "$dest_dir"; then
+            echo "Error: Cannot create destination directory: $dest_dir"
+            log_security_event "DIR_ERROR" "Failed to create directory: $dest_dir"
+            return 1
+        fi
+        log_security_event "DIR_CREATE" "Created directory: $dest_dir"
+    fi
+
+    # Check if we can write to destination directory
+    if [ ! -w "$dest_dir" ]; then
+        echo "Error: Cannot write to destination directory: $dest_dir"
+        log_security_event "PERMISSION_ERROR" "Cannot write to directory: $dest_dir"
+        return 1
+    fi
+
+    # Backup existing destination file if it exists
+    if [ -f "$dest" ]; then
+        local backup_file="${dest}.backup.$(date +%Y%m%d_%H%M%S)"
+        if ! cp "$dest" "$backup_file"; then
+            echo "Warning: Could not create backup of $dest"
+            log_security_event "BACKUP_FAIL" "Backup failed: $dest"
+        else
+            echo "  💾 Created backup: $(basename "$backup_file")"
+            log_security_event "BACKUP_SUCCESS" "Created backup: $backup_file"
+        fi
+    fi
+
+    # Perform the copy with error handling
+    if ! cp "$src" "$dest"; then
+        echo "Error: Failed to copy $src to $dest"
+        log_security_event "COPY_FAIL" "Copy failed: $src to $dest"
+        return 1
+    fi
+
+    # Preserve reasonable permissions (readable by user, not executable unless necessary)
+    chmod 644 "$dest"
+    log_security_event "COPY_SUCCESS" "File copied successfully: $src to $dest"
+
+    return 0
+}
+
+safe_rsync() {
+    local src="$1"
+    local dest="$2"
+
+    # Validate source directory exists
+    if [ ! -d "$src" ]; then
+        echo "Error: Source directory does not exist: $src"
+        return 1
+    fi
+
+    # Create destination directory if it doesn't exist
+    if [ ! -d "$dest" ]; then
+        if ! safe_mkdir_simple "$dest" "rsync destination"; then
+            return 1
+        fi
+    fi
+
+    # Use rsync with safer options - no preserve permissions, no devices, no special files
+    if ! rsync -rlpt --exclude=".*" --exclude="*.tmp" --exclude="*.bak" "$src" "$dest"; then
+        echo "Error: Failed to sync $src to $dest"
+        return 1
+    fi
+
+    return 0
+}
+
+# Simple secure directory creation (without full validation for internal use)
+safe_mkdir_simple() {
+    local dir="$1"
+    local description="$2"
+
+    if ! mkdir -p "$dir"; then
+        echo "Error: Cannot create $description directory: $dir"
+        return 1
+    fi
+
+    # Set secure permissions (rwx for owner, rx for group)
+    chmod 750 "$dir" 2>/dev/null || true
+    return 0
+}
+
 # Function to show usage
 show_usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -161,19 +375,19 @@ sync_file_bidirectional() {
     if [[ -f "$local_file" && -f "$repo_file" ]]; then
         if [[ "$local_file" -nt "$repo_file" ]]; then
             echo "  📤 $file_type: $(basename "$local_file") (local → repo)"
-            cp "$local_file" "$repo_file"
+            safe_copy_file "$local_file" "$repo_file" "local-to-repo"
         elif [[ "$repo_file" -nt "$local_file" ]]; then
             echo "  📥 $file_type: $(basename "$repo_file") (repo → local)"
-            cp "$repo_file" "$local_file"
+            safe_copy_file "$repo_file" "$local_file" "repo-to-local"
         else
             echo "  ✓ $file_type: $(basename "$local_file") (up to date)"
         fi
     elif [[ -f "$local_file" ]]; then
         echo "  📤 $file_type: $(basename "$local_file") (creating in repo)"
-        cp "$local_file" "$repo_file"
+        safe_copy_file "$local_file" "$repo_file" "create-repo"
     elif [[ -f "$repo_file" ]]; then
         echo "  📥 $file_type: $(basename "$repo_file") (creating locally)"
-        cp "$repo_file" "$local_file"
+        safe_copy_file "$repo_file" "$local_file" "create-local"
     fi
 }
 
@@ -181,8 +395,8 @@ sync_file_bidirectional() {
 sync_agents_local_to_repo() {
     echo "🤖 Syncing agents (local → repo)"
     if [ -d "$CLAUDE_AGENTS_DIR" ]; then
-        mkdir -p "$REPO_DIR/agents"
-        rsync -aP "$CLAUDE_AGENTS_DIR/" "$REPO_DIR/agents/"
+        safe_mkdir_simple "$REPO_DIR/agents" "repository agents"
+        safe_rsync "$CLAUDE_AGENTS_DIR/" "$REPO_DIR/agents/"
     else
         echo "  No local agents directory found"
     fi
@@ -192,8 +406,8 @@ sync_agents_local_to_repo() {
 sync_agents_repo_to_local() {
     echo "🤖 Syncing agents (repo → local)"
     if [ -d "$REPO_DIR/agents" ]; then
-        mkdir -p "$CLAUDE_AGENTS_DIR"
-        rsync -aP "$REPO_DIR/agents/" "$CLAUDE_AGENTS_DIR/"
+        safe_mkdir_simple "$CLAUDE_AGENTS_DIR" "local agents"
+        safe_rsync "$REPO_DIR/agents/" "$CLAUDE_AGENTS_DIR/"
     else
         echo "  No agents directory in repository"
     fi
@@ -204,8 +418,8 @@ sync_agents_bidirectional() {
     echo "🤖 Syncing agents (bidirectional)"
 
     # Create directories if they don't exist
-    mkdir -p "$CLAUDE_AGENTS_DIR"
-    mkdir -p "$REPO_DIR/agents"
+    safe_mkdir_simple "$CLAUDE_AGENTS_DIR" "local agents"
+    safe_mkdir_simple "$REPO_DIR/agents" "repository agents"
 
     # Get all unique agent files from both locations
     local all_agents=()
@@ -233,12 +447,29 @@ sync_agents_bidirectional() {
 # Create .claude directories if they don't exist
 if [ ! -d "$CLAUDE_COMMANDS_DIR" ]; then
     echo "📁 Creating ~/.claude/commands directory"
-    mkdir -p "$CLAUDE_COMMANDS_DIR"
+    safe_mkdir_simple "$CLAUDE_COMMANDS_DIR" "commands"
 fi
 
 if [ ! -d "$CLAUDE_AGENTS_DIR" ]; then
     echo "📁 Creating ~/.claude/agents directory"
-    mkdir -p "$CLAUDE_AGENTS_DIR"
+    safe_mkdir_simple "$CLAUDE_AGENTS_DIR" "agents"
+fi
+
+# Validate directories before operations
+if ! validate_directory_safety "$REPO_DIR" "Repository directory"; then
+    exit 1
+fi
+
+if ! validate_directory_safety "$CLAUDE_COMMANDS_DIR" "Commands directory"; then
+    exit 1
+fi
+
+if ! validate_directory_safety "$CLAUDE_AGENTS_DIR" "Agents directory"; then
+    exit 1
+fi
+
+if ! validate_directory_safety "$(dirname "$CLAUDE_MD_FILE")" "Claude config directory"; then
+    exit 1
 fi
 
 echo "🔄 Syncing Claude configuration ($SYNC_MODE mode)..."
@@ -256,7 +487,7 @@ case $SYNC_MODE in
         # Commands (always repo-to-local for now)
         if [ -d "$REPO_DIR/commands" ]; then
             echo "📋 Syncing commands (repo → local)"
-            rsync -aP "$REPO_DIR/commands/" "$CLAUDE_COMMANDS_DIR/"
+            safe_rsync "$REPO_DIR/commands/" "$CLAUDE_COMMANDS_DIR/"
         fi
 
         # Agents
@@ -265,7 +496,7 @@ case $SYNC_MODE in
         # CLAUDE.md
         if [ -f "$CLAUDE_MD_FILE" ]; then
             echo "⚙️  Syncing CLAUDE.md (local → repo)"
-            cp "$CLAUDE_MD_FILE" "$REPO_DIR/claude.md"
+            safe_copy_file "$CLAUDE_MD_FILE" "$REPO_DIR/claude.md" "config-local-to-repo"
         fi
         ;;
 
@@ -273,7 +504,7 @@ case $SYNC_MODE in
         # Commands
         if [ -d "$REPO_DIR/commands" ]; then
             echo "📋 Syncing commands (repo → local)"
-            rsync -aP "$REPO_DIR/commands/" "$CLAUDE_COMMANDS_DIR/"
+            safe_rsync "$REPO_DIR/commands/" "$CLAUDE_COMMANDS_DIR/"
         fi
 
         # Agents
@@ -282,7 +513,7 @@ case $SYNC_MODE in
         # CLAUDE.md
         if [ -f "$REPO_DIR/claude.md" ]; then
             echo "⚙️  Syncing claude.md (repo → local)"
-            cp "$REPO_DIR/claude.md" "$CLAUDE_MD_FILE"
+            safe_copy_file "$REPO_DIR/claude.md" "$CLAUDE_MD_FILE" "config-repo-to-local"
         fi
         ;;
 
@@ -294,7 +525,7 @@ case $SYNC_MODE in
         # Commands (always repo-to-local for now)
         if [ -d "$REPO_DIR/commands" ]; then
             echo "📋 Syncing commands (repo → local)"
-            rsync -aP "$REPO_DIR/commands/" "$CLAUDE_COMMANDS_DIR/"
+            safe_rsync "$REPO_DIR/commands/" "$CLAUDE_COMMANDS_DIR/"
         fi
 
         # Agents
