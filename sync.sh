@@ -10,6 +10,7 @@ CLAUDE_MD_FILE="$HOME/.claude/CLAUDE.md"
 
 # Default sync mode
 SYNC_MODE="bidirectional"
+PRESERVE_MODEL=true
 
 # Security validation functions
 validate_directory_safety() {
@@ -215,6 +216,66 @@ safe_mkdir_simple() {
     return 0
 }
 
+# Function to extract model field from agent frontmatter
+get_model_from_file() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        # Extract the model line from frontmatter (between --- markers)
+        awk '/^---$/,/^---$/ { if ($0 ~ /^model:/) print $2 }' "$file" | head -1
+    fi
+}
+
+# Function to copy file while preserving model setting
+safe_copy_file_preserve_model() {
+    local src="$1"
+    local dest="$2"
+    local operation_type="$3"
+
+    # If not preserving model or dest doesn't exist, use regular copy
+    if [ "$PRESERVE_MODEL" = false ] || [ ! -f "$dest" ]; then
+        safe_copy_file "$src" "$dest" "$operation_type"
+        return $?
+    fi
+
+    # Get model from destination (local) file
+    local dest_model=$(get_model_from_file "$dest")
+
+    # If no model found in destination, use regular copy
+    if [ -z "$dest_model" ]; then
+        safe_copy_file "$src" "$dest" "$operation_type"
+        return $?
+    fi
+
+    # Create temp file
+    local temp_file=$(mktemp)
+
+    # Copy source to temp, replacing model field with destination's model
+    awk -v new_model="$dest_model" '
+        BEGIN { in_frontmatter=0; frontmatter_count=0 }
+        /^---$/ {
+            frontmatter_count++
+            in_frontmatter = (frontmatter_count == 1)
+            print
+            next
+        }
+        in_frontmatter && /^model:/ {
+            print "model: " new_model
+            next
+        }
+        { print }
+    ' "$src" > "$temp_file"
+
+    # Use regular safe_copy_file with temp file as source
+    if safe_copy_file "$temp_file" "$dest" "$operation_type"; then
+        rm -f "$temp_file"
+        log_security_event "MODEL_PRESERVED" "Preserved model setting '$dest_model' in $(basename "$dest")"
+        return 0
+    else
+        rm -f "$temp_file"
+        return 1
+    fi
+}
+
 # Function to show usage
 show_usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -222,15 +283,21 @@ show_usage() {
     echo "Sync Claude configuration between repository and local directories"
     echo ""
     echo "OPTIONS:"
-    echo "  --local-to-repo     Sync from local (~/.claude) to repository"
-    echo "  --repo-to-local     Sync from repository to local (~/.claude)"
-    echo "  --bidirectional     Two-way sync based on file modification times"
-    echo "  -h, --help         Show this help message"
+    echo "  --local-to-repo      Sync from local (~/.claude) to repository"
+    echo "  --repo-to-local      Sync from repository to local (~/.claude)"
+    echo "  --bidirectional      Two-way sync based on file modification times"
+    echo "  --no-preserve-model  Override model settings with repo versions"
+    echo "  -h, --help          Show this help message"
     echo ""
     echo "SYNC MODES:"
     echo "  repo-to-local:   Updates local files with repository versions"
     echo "  local-to-repo:   Updates repository with local file versions"
     echo "  bidirectional:   Syncs newer files in both directions, creates missing files [default]"
+    echo ""
+    echo "FLAGS:"
+    echo "  --no-preserve-model: Override local model settings with repository versions."
+    echo "                       By default, local 'model:' settings are preserved when"
+    echo "                       syncing agent instructions from the repository."
     echo ""
 }
 
@@ -247,6 +314,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --bidirectional)
             SYNC_MODE="bidirectional"
+            shift
+            ;;
+        --no-preserve-model)
+            PRESERVE_MODEL=false
             shift
             ;;
         -h|--help)
@@ -368,7 +439,12 @@ sync_file_bidirectional() {
             safe_copy_file "$local_file" "$repo_file" "local-to-repo"
         elif [[ "$repo_file" -nt "$local_file" ]]; then
             echo "  📥 $file_type: $(basename "$repo_file") (repo → local)"
-            safe_copy_file "$repo_file" "$local_file" "repo-to-local"
+            # Use preserve model function for agent files when syncing from repo to local
+            if [[ "$file_type" == "Agent" ]] && [[ "$PRESERVE_MODEL" == true ]]; then
+                safe_copy_file_preserve_model "$repo_file" "$local_file" "repo-to-local"
+            else
+                safe_copy_file "$repo_file" "$local_file" "repo-to-local"
+            fi
         else
             echo "  ✓ $file_type: $(basename "$local_file") (up to date)"
         fi
@@ -377,7 +453,12 @@ sync_file_bidirectional() {
         safe_copy_file "$local_file" "$repo_file" "create-repo"
     elif [[ -f "$repo_file" ]]; then
         echo "  📥 $file_type: $(basename "$repo_file") (creating locally)"
-        safe_copy_file "$repo_file" "$local_file" "create-local"
+        # Use preserve model function for agent files when syncing from repo to local
+        if [[ "$file_type" == "Agent" ]] && [[ "$PRESERVE_MODEL" == true ]]; then
+            safe_copy_file_preserve_model "$repo_file" "$local_file" "create-local"
+        else
+            safe_copy_file "$repo_file" "$local_file" "create-local"
+        fi
     fi
 }
 
@@ -397,7 +478,24 @@ sync_agents_repo_to_local() {
     echo "🤖 Syncing agents (repo → local)"
     if [ -d "$REPO_DIR/agents" ]; then
         safe_mkdir_simple "$CLAUDE_AGENTS_DIR" "local agents"
-        safe_rsync "$REPO_DIR/agents/" "$CLAUDE_AGENTS_DIR/"
+
+        # If preserving model, sync file by file
+        if [ "$PRESERVE_MODEL" = true ]; then
+            find "$REPO_DIR/agents" -name "*.md" -type f | while read -r repo_agent; do
+                local agent_name=$(basename "$repo_agent")
+                local local_agent="$CLAUDE_AGENTS_DIR/$agent_name"
+
+                if [ -f "$local_agent" ]; then
+                    echo "  📥 $(basename "$repo_agent") (preserving model)"
+                    safe_copy_file_preserve_model "$repo_agent" "$local_agent" "repo-to-local"
+                else
+                    echo "  📥 $(basename "$repo_agent")"
+                    safe_copy_file "$repo_agent" "$local_agent" "repo-to-local"
+                fi
+            done
+        else
+            safe_rsync "$REPO_DIR/agents/" "$CLAUDE_AGENTS_DIR/"
+        fi
     else
         echo "  No agents directory in repository"
     fi
