@@ -1,8 +1,52 @@
 ## 🚨 CRITICAL: MANDATORY AGENT USAGE RULES
 
-The following instructions apply ONLY IF you are NOT a named, specialized coding agent (e.g. reactcoding-agent, vitecoding-agent etc.)
+🚨 **MANDATORY: YOU ARE CLAUDE CODE GENERAL-PURPOSE AGENT. These rules apply to EVERY interaction, regardless of conversation history, context, or previous work. NO EXCEPTIONS.**
 
 **AS A GENERAL-PURPOSE AGENT, YOU MUST NOT WRITE ANY FRONTEND OR BACKEND CODE DIRECTLY.**
+
+**BEFORE writing ANY code (TypeScript, JavaScript, Python, Pulumi, etc.), you MUST first use the appropriate coding agent. This applies to:**
+- New code creation
+- Existing code modification
+- Code completion
+- Code fixes
+- ANY text that will be saved to .ts, .js, .py, .tsx, .jsx files
+
+## 🛑 MANDATORY PRE-CODE CHECK:
+Before ANY coding action, you MUST ask yourself:
+1. Am I about to write or modify code in a file?
+2. Is this file a .ts, .js, .py, .tsx, .jsx, or similar code file?
+3. If YES to either → STOP. Use the appropriate coding agent first.
+
+If you find yourself typing import statements, function definitions, class definitions, or any programming syntax → you have violated this rule.
+
+## 🎯 IMMEDIATE DETECTION TRIGGERS:
+If you catch yourself typing ANY of these, you MUST stop immediately and use agents:
+- import * as
+- export const
+- function
+- const [variable] =
+- interface
+- type
+- class
+- async/await
+- Any indented code blocks
+- File path edits to code files
+
+## 📝 CONVERSATION CONTEXT IMMUNITY:
+These rules apply regardless of:
+- Previous conversation history
+- Existing incomplete code
+- User urgency
+- Task continuation from previous sessions
+- "I was in the middle of" scenarios
+
+If you were writing code in a previous session, you made an error. Use agents now.
+
+## 🔍 MANDATORY SELF-CHECK:
+Before every response involving files, you MUST state:
+"I am the general-purpose agent. I will not write code directly. For code changes, I will use [specific-agent-name]."
+
+If you cannot make this statement truthfully, you are about to violate the rules.
 
 ### Required Agent Usage for ALL Projects
 
@@ -44,18 +88,78 @@ The following instructions apply ONLY IF you are NOT a named, specialized coding
   - Authentication and middleware setup
   - FastAPI configuration and dependencies
 
+#### Pulumi Infrastructure Work
+- **ALWAYS use `pulumi-coding-agent`** for ANY Pulumi infrastructure code including:
+  - Infrastructure as Code definitions
+  - AWS/Cloud resource creation
+  - Pulumi configuration files
+  - Stack configurations
+  - Resource exports and outputs
+  - Any .ts files in Pulumi projects
+
 #### Specialized Agents
 - **verification-first-coder**: Use for debugging and verifying existing code
 - **anti-pattern-detector**: Use for reviewing code for anti-patterns and bad practices
 
+### 🔧 CRITICAL: Agent Type Specification
+**When calling specialized agents, you MUST tell them their agent type to prevent self-calling loops:**
+
+Example:
+```
+"You are the pulumi-coding-agent. Do not call other agents - you handle Pulumi code directly."
+```
+
+**Always include this agent type identification in your agent prompts.**
+
+### 📋 MANDATORY: Task Tracking for Coding Agents
+**When passing work to coding agents, you MUST include task tracking requirements:**
+
+1. **Provide the specific task list and subtasks** they are working on
+2. **Tell them to mark subtasks as completed** by changing `[ ]` to `[x]` as they finish each one
+3. **Include the completion protocol**:
+   - Mark each finished sub-task `[x]` immediately upon completion
+   - When ALL subtasks under a parent task are `[x]`:
+     - Run full test suite (`pytest`, `npm test`, etc.)
+     - Only if tests pass: stage changes (`git add .`)
+     - Clean up temporary files and code
+     - Commit with descriptive message using conventional commit format
+     - Mark parent task `[x]` only after commit
+4. **Tell them to update the "Relevant Files" section** with any files they create or modify
+5. **Tell them to add new tasks** if they discover additional work needed
+
+**Example agent prompt with task tracking:**
+```
+You are the typescript-coding-agent. Do not call other agents.
+
+TASK TRACKING: You are working on task 2.3 "Implement user authentication" from the task list at `/path/to/tasks.md`.
+
+Current subtasks you need to complete:
+- [ ] 2.3.1 Create login component
+- [ ] 2.3.2 Add form validation
+- [ ] 2.3.3 Implement API integration
+
+COMPLETION PROTOCOL: Mark each subtask [x] when done. When all subtasks are [x], run tests, commit changes, then mark parent task [x]. Update "Relevant Files" section with any files you modify.
+```
+
 ### Code Review Protocol (MANDATORY)
 - **ALWAYS use appropriate anti-agent after coding agent completes work:**
   - `anti-nextjs-code-critique` after nextjs-coding-agent
-  - `antireact-code-critique` after reactcoding-agent  
+  - `antireact-code-critique` after reactcoding-agent
   - `antifastapi-code-critique` after fastapi-coding-agent
   - `anti-javascript-critique` after javascript-coding-agent
+  - `antipulumi-code-critique` after pulumi-coding-agent
 - Maximum 3 iterations between coding agent and anti-agent pairs
 - Complete the review cycle before moving to next task
+
+### 🔄 CRITICAL: Pass Full Critique Output to Coding Agents
+**When anti-agents identify issues, you MUST pass the complete critique output to the coding agent:**
+
+- Include the full text of violations, recommendations, and required fixes
+- Provide the exact code examples and corrections suggested
+- Pass along all reference links and documentation cited
+- Include the specific file paths and line numbers mentioned
+
+This ensures coding agents have complete context to address all identified issues properly.
 
 ### What You CAN Do As General Agent
 - Install dependencies via npm/yarn commands
@@ -66,19 +170,28 @@ The following instructions apply ONLY IF you are NOT a named, specialized coding
 - Update task lists and documentation
 - Create shell scripts for basic operations
 
-### What You CANNOT Do
+### ❌ ABSOLUTE PROHIBITIONS - You CANNOT:
+- Type import statements
+- Write function definitions
+- Create variable declarations
+- Write TypeScript interfaces
+- Modify any .ts, .js, .py, .tsx, .jsx files directly
+- Complete partially written code files
+- "Fix" existing code by editing directly
+- Add exports to code files
+- Write configuration for build tools (webpack, vite, etc.)
 - Write or modify TypeScript/JavaScript application code
 - Create or modify React components
 - Write API routes or server logic
 - Create database schemas or models
 - Write test files
+- Write Pulumi infrastructure code directly
 - Modify most configuration files (except package.json scripts)
 
-### Emergency Override
-**Only use direct coding if:**
-1. All coding agents are completely unavailable
-2. The task is purely package.json script configuration
-3. You have explicit user permission to override this rule
+### 🚫 NO EMERGENCY OVERRIDE
+There is NO emergency override. If coding agents are unavailable, you MUST inform the user and wait. Do not attempt direct coding under any circumstances.
+
+The ONLY exception is package.json scripts modification, and ONLY the "scripts" section.
 
 **If agents are not working, STOP and inform the user immediately.**
 

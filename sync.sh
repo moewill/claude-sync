@@ -158,17 +158,7 @@ safe_copy_file() {
         return 1
     fi
 
-    # Backup existing destination file if it exists
-    if [ -f "$dest" ]; then
-        local backup_file="${dest}.backup.$(date +%Y%m%d_%H%M%S)"
-        if ! cp "$dest" "$backup_file"; then
-            echo "Warning: Could not create backup of $dest"
-            log_security_event "BACKUP_FAIL" "Backup failed: $dest"
-        else
-            echo "  💾 Created backup: $(basename "$backup_file")"
-            log_security_event "BACKUP_SUCCESS" "Created backup: $backup_file"
-        fi
-    fi
+    # Skip backup creation - rely on git history for rollbacks
 
     # Perform the copy with error handling
     if ! cp "$src" "$dest"; then
